@@ -273,6 +273,11 @@ async def on_join_request(event: ChatJoinRequest) -> None:
 
             await mutate_whitelist(_upgrade)
         await safe_dm(user.id, APPROVE_TEXT.format(project=esc(project)))
+        uname = "@" + esc(user.username) if user.username else "-"
+        await notify_admins(
+            f"<b>Одобрена заявка</b> в проект <b>{esc(project)}</b>\n"
+            f"Кто: {esc(user.full_name)} {uname} (<code>id {user.id}</code>)"
+        )
         return
 
     await event.decline()
