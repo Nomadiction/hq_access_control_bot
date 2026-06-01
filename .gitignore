@@ -4,3 +4,4 @@ venv/
 *.pyc
 access.log*
 whitelist.json
+*.tmp

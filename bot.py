@@ -3,10 +3,13 @@ import json
 import logging
 import os
 import time
+from html import escape
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import (
     BotCommand,
@@ -42,6 +45,12 @@ audit.addHandler(_audit_handler)
 audit.propagate = False
 
 
+def esc(value: object) -> str:
+    """Экранирует динамический текст (имена, ники, названия групп) под HTML,
+    чтобы символы < > & не ломали разметку сообщения."""
+    return escape(str(value), quote=False)
+
+
 def load_dotenv(path: Path) -> None:
     """Читает .env рядом со скриптом и кладёт значения в окружение.
     Уже заданные переменные (например, из systemd) не перетираются.
@@ -68,50 +77,50 @@ ADMIN_IDS = {
     if x
 }
 
-# ── Тексты бота. Правь здесь. {project} подставляется именем проекта. ──────────
+# ── Тексты бота. HTML-разметка. {project} подставляется именем проекта. ────────
 ADMIN_WELCOME = (
     "<b>HQ Access Bot</b>\n"
-    "Пропускной контроль рабочих групп проектов.\n\n"
+    "<i>Пропускной контроль рабочих групп проектов.</i>\n\n"
     "<b>Как это работает</b>\n"
-    "Пользователь подаёт заявку по пригласительной ссылке. Бот сверяет его "
-    "со списком доступа проекта и мгновенно одобряет или отклоняет. "
-    "Об отклонённых попытках вы получаете уведомление.\n\n"
-    "<b>Команды администратора</b>\n"
-    "/add &lt;проект&gt; &lt;@username|id&gt; [ещё...] — добавить участников\n"
-    "/remove &lt;проект&gt; &lt;@username|id&gt; [ещё...] — убрать участников\n"
-    "/reload — показать списки доступа\n"
-    "/status — статус и счётчики\n"
-    "/clear — очистить эту переписку\n"
-    "/id — узнать chat_id (отправьте команду в группе)\n"
-    "/me — показать ваш ID\n\n"
-    "<b>Проекты добавляются сами</b> при добавлении бота в группу.\n"
-    "Текущие: Brierly, PTTC, VaultForge, Scentio."
+    "<blockquote>Пользователь подаёт заявку по пригласительной ссылке. Бот "
+    "сверяет его со списком доступа проекта и <u>мгновенно</u> одобряет или "
+    "отклоняет. Об отклонённых попытках приходит уведомление.</blockquote>\n\n"
+    "<b>Команды</b>\n"
+    "<code>/add</code> - добавить участников\n"
+    "<code>/remove</code> - убрать участников\n"
+    "<code>/reload</code> - списки доступа\n"
+    "<code>/status</code> - статус и счётчики\n"
+    "<code>/clear</code> - очистить переписку\n"
+    "<code>/id</code> - узнать chat_id (в группе)\n"
+    "<code>/me</code> - показать ваш ID\n\n"
+    "<i>Новые проекты заводятся автоматически при добавлении бота в группу.</i>"
 )
 
 USER_WELCOME = (
     "<b>HQ Access Bot</b>\n"
-    "Система доступа к рабочим группам проектов.\n\n"
-    "Чтобы войти в проект, откройте пригласительную ссылку и подайте заявку. "
-    "Если вы в списке доступа, она одобрится автоматически за пару секунд. "
-    "Если нет — доступ выдаёт администратор.\n\n"
+    "<i>Система доступа к рабочим группам проектов.</i>\n\n"
+    "<blockquote>Чтобы войти в проект, откройте пригласительную ссылку и "
+    "подайте заявку. Если вы в списке доступа - она одобрится <u>автоматически</u> "
+    "за пару секунд. Если нет - доступ выдаёт администратор.</blockquote>\n\n"
     "<b>Команда</b>\n"
-    "/me — показать ваш ID (его может попросить администратор)\n\n"
+    "<code>/me</code> - показать ваш ID\n\n"
     'По всем вопросам: <a href="https://t.me/stashowner">@stashowner</a>'
 )
 
 APPROVE_TEXT = (
-    "Доступ подтверждён. Добро пожаловать в проект {project}.\n"
+    "<b>Доступ подтверждён.</b>\n"
+    "Добро пожаловать в проект <b>{project}</b>. "
     "Группа уже открыта в вашем списке чатов."
 )
 
 DENY_TEXT = (
-    "Заявка отклонена.\n\n"
+    "<b>Заявка отклонена.</b>\n"
     "Вашего аккаунта нет в списке доступа этого проекта. "
-    "Если это ошибка — напишите администратору, он добавит вас в список."
+    "Если это ошибка - напишите администратору, он добавит вас в список."
 )
 
 BOT_DESCRIPTION = (
-    "HQ Access Bot — пропускной контроль приватных рабочих групп. "
+    "HQ Access Bot - пропускной контроль приватных рабочих групп. "
     "Подайте заявку по пригласительной ссылке нужного проекта: если вы в "
     "списке доступа, бот одобрит её автоматически за пару секунд. "
     "Нажмите «Start», чтобы начать."
@@ -143,7 +152,11 @@ ADMIN_COMMANDS = [
 if not BOT_TOKEN:
     raise SystemExit("BOT_TOKEN пуст. Задай его в .env / переменных окружения.")
 
-bot = Bot(token=BOT_TOKEN)
+# Дефолтный режим разметки HTML: все сообщения форматируются автоматически.
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+)
 dp = Dispatcher()
 
 
@@ -161,11 +174,26 @@ def load_whitelist() -> dict:
 
 
 def save_whitelist(data: dict) -> None:
-    """Сохраняет whitelist.json. Бот читает файл на каждую заявку,
-    поэтому правки через /add и /remove действуют сразу."""
-    WHITELIST_PATH.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    """Сохраняет whitelist.json атомарно: пишем во временный файл и заменяем им
+    основной. Если процесс умрёт посреди записи, целевой файл не побьётся."""
+    payload = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    tmp = WHITELIST_PATH.with_name(WHITELIST_PATH.name + ".tmp")
+    tmp.write_text(payload, encoding="utf-8")
+    tmp.replace(WHITELIST_PATH)  # os.replace атомарен в пределах ФС
+
+
+WHITELIST_LOCK = asyncio.Lock()
+
+
+async def mutate_whitelist(mutator):
+    """Сериализует read-modify-write whitelist.json через лок: перечитывает
+    свежие данные, применяет mutator(data) и атомарно сохраняет. Исключает
+    потерю одновременных правок (две заявки или команды в одну миллисекунду)."""
+    async with WHITELIST_LOCK:
+        data = load_whitelist()
+        result = mutator(data)
+        save_whitelist(data)
+        return result
 
 
 def find_chat_key(data: dict, token: str) -> str | None:
@@ -190,10 +218,14 @@ def match_rules(rules: dict, user_id: int, username: str | None) -> bool:
     return False
 
 
-def count_people(data: dict) -> int:
-    return sum(
-        len(r.get("ids", [])) + len(r.get("usernames", [])) for r in data.values()
-    )
+def count_unique(data: dict) -> int:
+    """Уникальных участников: объединение всех id и всех username по группам."""
+    ids: set[int] = set()
+    usernames: set[str] = set()
+    for r in data.values():
+        ids.update(r.get("ids", []))
+        usernames.update(u.lstrip("@").lower() for u in r.get("usernames", []))
+    return len(ids) + len(usernames)
 
 
 async def safe_dm(user_id: int, text: str) -> None:
@@ -215,7 +247,6 @@ async def send_welcome(message: Message) -> None:
     text = ADMIN_WELCOME if message.from_user.id in ADMIN_IDS else USER_WELCOME
     await message.answer(
         text,
-        parse_mode="HTML",
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
@@ -235,18 +266,23 @@ async def on_join_request(event: ChatJoinRequest) -> None:
         audit.info("APPROVED id=%s @%s project=%s", user.id, user.username, project)
         # Авто-апгрейд: фиксируем числовой id, чтобы доступ не зависел от @username.
         if user.id not in rules.get("ids", []):
-            rules.setdefault("ids", []).append(user.id)
-            save_whitelist(data)
-        await safe_dm(user.id, APPROVE_TEXT.format(project=project))
+            def _upgrade(d: dict) -> None:
+                r = d.get(str(chat_id))
+                if r is not None and user.id not in r.get("ids", []):
+                    r.setdefault("ids", []).append(user.id)
+
+            await mutate_whitelist(_upgrade)
+        await safe_dm(user.id, APPROVE_TEXT.format(project=esc(project)))
         return
 
     await event.decline()
     logger.info("DECLINED id=%s @%s -> %s", user.id, user.username, chat_id)
     audit.info("DECLINED id=%s @%s project=%s", user.id, user.username, project)
     await safe_dm(user.id, DENY_TEXT)
+    uname = "@" + esc(user.username) if user.username else "-"
     await notify_admins(
-        f"Отклонена заявка в проект {project}.\n"
-        f"Кто: {user.full_name} @{user.username or '—'} (id {user.id})"
+        f"<b>Отклонена заявка</b> в проект <b>{esc(project)}</b>\n"
+        f"Кто: {esc(user.full_name)} {uname} (<code>id {user.id}</code>)"
     )
 
 
@@ -259,18 +295,25 @@ async def on_my_chat_member(event: ChatMemberUpdated) -> None:
         return
     if event.new_chat_member.status not in ("member", "administrator", "creator"):
         return
-    data = load_whitelist()
     key = str(chat.id)
-    if key in data:
+    if key in load_whitelist():
         return  # группа уже заведена, ничего не трогаем
-    data[key] = {"project": chat.title or key, "ids": [], "usernames": []}
-    save_whitelist(data)
+
+    def _register(d: dict) -> bool:
+        if key in d:  # повторная проверка уже под локом
+            return False
+        d[key] = {"project": chat.title or key, "ids": [], "usernames": []}
+        return True
+
+    if not await mutate_whitelist(_register):
+        return
     logger.info("AUTO-ADDED group %s «%s» в whitelist", key, chat.title)
     audit.info("GROUP-ADDED %s «%s»", key, chat.title)
     await notify_admins(
-        f"Бот добавлен в группу «{chat.title}» ({key}).\n"
+        f"<b>Бот добавлен в группу</b>\n"
+        f"«{esc(chat.title)}» (<code>{key}</code>)\n"
         f"Группа заведена в список доступа, пока пустая.\n"
-        f"Добавь людей: /add {key} @username"
+        f"Добавить людей: <code>/add {key} @username</code>"
     )
 
 
@@ -287,34 +330,33 @@ async def cmd_help(message: Message) -> None:
 @dp.message(Command("id"))
 async def cmd_id(message: Message) -> None:
     # Вызвать в нужной группе: /id@hq_access_control_bot
-    await message.answer(
-        f"chat_id: <code>{message.chat.id}</code>", parse_mode="HTML"
-    )
+    await message.answer(f"chat_id: <code>{message.chat.id}</code>")
 
 
 @dp.message(Command("me"))
 async def cmd_me(message: Message) -> None:
     # Любой может написать боту /me в ЛС и узнать свой числовой ID.
     u = message.from_user
+    uname = "@" + esc(u.username) if u.username else "<i>не задан</i>"
     await message.answer(
-        f"user_id: <code>{u.id}</code>\nusername: @{u.username or '—'}",
-        parse_mode="HTML",
+        f"Ваш ID: <code>{u.id}</code>\nUsername: {uname}"
     )
 
 
 @dp.message(Command("status"))
 async def cmd_status(message: Message) -> None:
-    if message.from_user.id not in ADMIN_IDS:
+    if message.chat.type != "private" or message.from_user.id not in ADMIN_IDS:
         return
     data = load_whitelist()
     up = int(time.time() - STARTED_AT)
     h, rem = divmod(up, 3600)
     m, _ = divmod(rem, 60)
     await message.answer(
-        "Статус: работает\n"
-        f"Аптайм: {h} ч {m} мин\n"
-        f"Групп заведено: {len(data)}\n"
-        f"Людей в списках: {count_people(data)}"
+        "<b>Статус бота</b>\n"
+        "Состояние: <b>работает</b>\n"
+        f"Аптайм: <b>{h} ч {m} мин</b>\n"
+        f"Групп заведено: <b>{len(data)}</b>\n"
+        f"Участников: <b>{count_unique(data)}</b>"
     )
 
 
@@ -352,42 +394,52 @@ async def cmd_add(message: Message) -> None:
         return
     parts = (message.text or "").split()
     if len(parts) < 3:
-        await message.answer("Формат: /add <проект|chat_id> <@username|id> [ещё...]")
+        await message.answer(
+            "Формат: <code>/add &lt;проект|chat_id&gt; &lt;@username|id&gt; [ещё...]</code>\n\n"
+            "<b>Например:</b>\n"
+            "<blockquote>/add Alpha @user1\n"
+            "/add Beta @user2 @user3 123456789</blockquote>"
+        )
         return
     target, who_list = parts[1], parts[2:]
-    data = load_whitelist()
-    key = find_chat_key(data, target)
-    if key is None:
-        await message.answer(f"Не нашёл группу: {target}")
+
+    def _apply(data: dict):
+        key = find_chat_key(data, target)
+        if key is None:
+            return None
+        rules = data[key]
+        rules.setdefault("ids", [])
+        rules.setdefault("usernames", [])
+        added, skipped = [], []
+        for who in who_list:
+            if who.lstrip("-").isdigit():
+                uid = int(who)
+                if uid in rules["ids"]:
+                    skipped.append(f"id {uid}")
+                else:
+                    rules["ids"].append(uid)
+                    added.append(f"id {uid}")
+            else:
+                uname = who.lstrip("@").lower()
+                if uname in {u.lstrip("@").lower() for u in rules["usernames"]}:
+                    skipped.append("@" + uname)
+                else:
+                    rules["usernames"].append("@" + uname)
+                    added.append("@" + uname)
+        return rules.get("project", key), added, skipped
+
+    result = await mutate_whitelist(_apply)
+    if result is None:
+        await message.answer(f"Не нашёл группу: <b>{esc(target)}</b>")
         return
-    rules = data[key]
-    rules.setdefault("ids", [])
-    rules.setdefault("usernames", [])
-    added, skipped = [], []
-    for who in who_list:
-        if who.lstrip("-").isdigit():
-            uid = int(who)
-            if uid in rules["ids"]:
-                skipped.append(f"id {uid}")
-            else:
-                rules["ids"].append(uid)
-                added.append(f"id {uid}")
-        else:
-            uname = who.lstrip("@").lower()
-            if uname in {u.lstrip("@").lower() for u in rules["usernames"]}:
-                skipped.append("@" + uname)
-            else:
-                rules["usernames"].append("@" + uname)
-                added.append("@" + uname)
-    save_whitelist(data)
-    proj = rules.get("project", key)
+    proj, added, skipped = result
     if added:
         audit.info("ADD project=%s %s", proj, ", ".join(added))
-    lines = [f"Проект {proj}:"]
+    lines = [f"<b>{esc(proj)}</b>"]
     if added:
-        lines.append("добавлено: " + ", ".join(added))
+        lines.append("Добавлено: <code>" + esc(", ".join(added)) + "</code>")
     if skipped:
-        lines.append("уже были: " + ", ".join(skipped))
+        lines.append("Уже были: <code>" + esc(", ".join(skipped)) + "</code>")
     await message.answer("\n".join(lines))
 
 
@@ -399,42 +451,54 @@ async def cmd_remove(message: Message) -> None:
         return
     parts = (message.text or "").split()
     if len(parts) < 3:
-        await message.answer("Формат: /remove <проект|chat_id> <@username|id> [ещё...]")
+        await message.answer(
+            "Формат: <code>/remove &lt;проект|chat_id&gt; &lt;@username|id&gt; [ещё...]</code>\n\n"
+            "<b>Например:</b>\n"
+            "<blockquote>/remove Alpha @user1\n"
+            "/remove Beta 123456789</blockquote>"
+        )
         return
     target, who_list = parts[1], parts[2:]
-    data = load_whitelist()
-    key = find_chat_key(data, target)
-    if key is None:
-        await message.answer(f"Не нашёл группу: {target}")
+
+    def _apply(data: dict):
+        key = find_chat_key(data, target)
+        if key is None:
+            return None
+        rules = data[key]
+        removed = []
+        for who in who_list:
+            if who.lstrip("-").isdigit():
+                uid = int(who)
+                if uid in rules.get("ids", []):
+                    rules["ids"] = [i for i in rules["ids"] if i != uid]
+                    removed.append(f"id {uid}")
+            else:
+                uname = who.lstrip("@").lower()
+                before = rules.get("usernames", [])
+                after = [u for u in before if u.lstrip("@").lower() != uname]
+                if len(after) != len(before):
+                    rules["usernames"] = after
+                    removed.append("@" + uname)
+        return rules.get("project", key), removed
+
+    result = await mutate_whitelist(_apply)
+    if result is None:
+        await message.answer(f"Не нашёл группу: <b>{esc(target)}</b>")
         return
-    rules = data[key]
-    removed = []
-    for who in who_list:
-        if who.lstrip("-").isdigit():
-            uid = int(who)
-            if uid in rules.get("ids", []):
-                rules["ids"] = [i for i in rules["ids"] if i != uid]
-                removed.append(f"id {uid}")
-        else:
-            uname = who.lstrip("@").lower()
-            before = rules.get("usernames", [])
-            after = [u for u in before if u.lstrip("@").lower() != uname]
-            if len(after) != len(before):
-                rules["usernames"] = after
-                removed.append("@" + uname)
-    save_whitelist(data)
-    proj = rules.get("project", key)
+    proj, removed = result
     if removed:
         audit.info("REMOVE project=%s %s", proj, ", ".join(removed))
-        await message.answer(f"Проект {proj}: удалено: " + ", ".join(removed))
+        await message.answer(
+            f"<b>{esc(proj)}</b>\nУдалено: <code>" + esc(", ".join(removed)) + "</code>"
+        )
     else:
-        await message.answer(f"Проект {proj}: не нашёл кого удалять.")
+        await message.answer(f"<b>{esc(proj)}</b>\nНе нашёл кого удалять.")
 
 
 @dp.message(Command("reload"))
 async def cmd_reload(message: Message) -> None:
-    # Только для админов. Показывает, что бот видит в whitelist.json сейчас.
-    if message.from_user.id not in ADMIN_IDS:
+    # Только админ и только в личке: список доступа не должен утекать в группу.
+    if message.chat.type != "private" or message.from_user.id not in ADMIN_IDS:
         return
     data = load_whitelist()
     if not data:
@@ -445,13 +509,13 @@ async def cmd_reload(message: Message) -> None:
         ids = rules.get("ids", [])
         users = rules.get("usernames", [])
         ids_line = ", ".join(str(i) for i in ids) or "—"
-        users_line = ", ".join("@" + u.lstrip("@") for u in users) or "—"
+        users_line = esc(", ".join("@" + u.lstrip("@") for u in users)) or "—"
         blocks.append(
-            f"{rules.get('project', '?')} ({chat_id})\n"
-            f"  ids: {ids_line}\n"
-            f"  users: {users_line}"
+            f"<b>{esc(rules.get('project', '?'))}</b> <code>{chat_id}</code>\n"
+            f"ids: <code>{ids_line}</code>\n"
+            f"users: {users_line}"
         )
-    await message.answer("Whitelist:\n\n" + "\n\n".join(blocks))
+    await message.answer("<b>Списки доступа</b>\n\n" + "\n\n".join(blocks))
 
 
 @dp.errors()
@@ -486,7 +550,7 @@ async def main() -> None:
     if not ADMIN_IDS:
         logger.warning("ADMIN_IDS пуст — админ-команды и уведомления недоступны.")
     data = load_whitelist()
-    logger.info("Загружено групп: %d, людей в списках: %d", len(data), count_people(data))
+    logger.info("Загружено групп: %d, участников: %d", len(data), count_unique(data))
 
     await bot.delete_webhook(drop_pending_updates=True)
     await setup_bot_profile()
