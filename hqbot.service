@@ -1,0 +1,13 @@
+[Unit]
+Description=HQ Access Control Bot
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/hqbot
+EnvironmentFile=/opt/hqbot/.env
+ExecStart=/opt/hqbot/venv/bin/python /opt/hqbot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
