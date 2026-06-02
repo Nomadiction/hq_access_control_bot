@@ -5,3 +5,5 @@ venv/
 access.log*
 whitelist.json
 *.tmp
+hqbot.lock
+.migrated_v2
